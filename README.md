@@ -35,7 +35,11 @@ Ensure you have at least 3GB of memory as the Elasticsearch stack docker will re
 Since the API is explosed on localhost:15005, one can use it to start the crawling process:
 
 ```sh
-feeder --api-uri http://localhost:15005 --url https://www.facebookcorewwwi.onion
+go build cmd/tdsh-feeder/tdsh-feeder.go
+```
+
+```sh
+./tdsh-feeder --api-uri http://localhost:15005 --url https://www.facebookcorewwwi.onion
 ```
 
 this will 'force' the API to publish given URL in crawling queue.
