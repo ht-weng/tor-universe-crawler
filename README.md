@@ -39,10 +39,12 @@ go build cmd/tdsh-feeder/tdsh-feeder.go
 ```
 
 ```sh
-./tdsh-feeder --api-uri http://localhost:15005 --url https://www.facebookcorewwwi.onion
+./tdsh-feeder --api-uri http://localhost:15005 --url http://torlinkbgs6aabns.onion/
 ```
 
-this will 'force' the API to publish given URL in crawling queue.
+This will 'force' the API to publish given URL in crawling queue.
+
+Call the feeder multiple times to publish a set of URLs to the crawling queue.
 
 ## How to view results
 
@@ -50,3 +52,7 @@ At the moment there is no Trandoshan dashboard.
 You can use the Kibana dashboard available at http://localhost:15004.
 
 You will need to create an index pattern named 'resources', and when it asks for the time field, choose 'time'.
+
+## How to save results
+
+'Save search' in Kibana Discovery and then 'Share this search' as a CSV report. 
