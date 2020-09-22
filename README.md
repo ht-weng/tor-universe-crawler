@@ -34,17 +34,27 @@ Ensure you have at least 3GB of memory as the Elasticsearch stack docker will re
 
 Since the API is explosed on localhost:15005, one can use it to start the crawling process:
 
+using trandoshanctl executable:
+
 ```sh
-go build cmd/tdsh-feeder/tdsh-feeder.go
+go build cmd/trandoshanctl/trandoshanctl.go
 ```
 
 ```sh
-./tdsh-feeder --api-uri http://localhost:15005 --url http://torlinkbgs6aabns.onion/
+./trandoshanctl schedule https://www.facebookcorewwwi.onion
 ```
 
 This will 'force' the API to publish given URL in crawling queue.
 
 Call the feeder multiple times to publish a set of URLs to the crawling queue.
+
+or using the docker image:
+
+```sh
+docker run creekorful/trandoshanctl schedule https://www.facebookcorewwwi.onion
+```
+
+this will schedule given URL for crawling.
 
 ## How to view results
 
