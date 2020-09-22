@@ -3,6 +3,9 @@ package scheduler
 import (
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/creekorful/trandoshan/api"
 	"github.com/creekorful/trandoshan/internal/messaging"
 	"github.com/creekorful/trandoshan/internal/util/logging"
@@ -10,8 +13,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"net/url"
-	"strings"
 )
 
 // GetApp return the scheduler app
@@ -100,7 +101,7 @@ func handleMessage(apiClient api.Client) natsutil.MsgHandler {
 				return fmt.Errorf("error while publishing URL: %s", err)
 			}
 		} else {
-			log.Trace().Stringer("url", u).Msg("URL should not be scheduled")
+			log.Debug().Stringer("url", u).Msg("URL should not be scheduled")
 		}
 
 		return nil
