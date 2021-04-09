@@ -1,155 +1,155 @@
 package crawler
 
 import (
-	"crypto/tls"
 	"fmt"
-	"github.com/creekorful/trandoshan/internal/messaging"
-	"github.com/creekorful/trandoshan/internal/util/logging"
-	natsutil "github.com/creekorful/trandoshan/internal/util/nats"
-	"github.com/nats-io/nats.go"
+	"github.com/darkspot-org/bathyscaphe/internal/clock"
+	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
+	"github.com/darkspot-org/bathyscaphe/internal/constraint"
+	"github.com/darkspot-org/bathyscaphe/internal/event"
+	chttp "github.com/darkspot-org/bathyscaphe/internal/http"
+	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/fasthttpproxy"
+	"io/ioutil"
+	"net/http"
 	"strings"
-	"time"
 )
 
-const defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0"
+var (
+	errContentTypeNotAllowed = fmt.Errorf("content type is not allowed")
+	errHostnameNotAllowed    = fmt.Errorf("hostname is not allowed")
+)
 
-// GetApp return the crawler app
-func GetApp() *cli.App {
-	return &cli.App{
-		Name:    "tdsh-crawler",
-		Version: "0.3.0",
-		Usage:   "Trandoshan crawler process",
-		Flags: []cli.Flag{
-			logging.GetLogFlag(),
-			&cli.StringFlag{
-				Name:     "nats-uri",
-				Usage:    "URI to the NATS server",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:     "tor-uri",
-				Usage:    "URI to the TOR SOCKS proxy",
-				Required: true,
-			},
-			&cli.StringFlag{
-				Name:  "user-agent",
-				Usage: "User agent to use",
-				Value: defaultUserAgent,
-			},
-			&cli.StringSliceFlag{
-				Name:  "allowed-ct",
-				Usage: "Content types allowed to crawl",
-				Value: cli.NewStringSlice("text/"),
-			},
-		},
-		Action: execute,
-	}
+// State represent the application state
+type State struct {
+	httpClient   chttp.Client
+	clock        clock.Clock
+	configClient configapi.Client
 }
 
-func execute(ctx *cli.Context) error {
-	logging.ConfigureLogger(ctx)
+// Name return the process name
+func (state *State) Name() string {
+	return "crawler"
+}
 
-	log.Info().Str("ver", ctx.App.Version).Msg("Starting tdsh-crawler")
+// Description return the process description
+func (state *State) Description() string {
+	return `
+The crawling component. It consumes URL, crawl the resource, and
+publish the result (page content + headers).
 
-	log.Debug().Str("uri", ctx.String("nats-uri")).Msg("Using NATS server")
-	log.Debug().Str("uri", ctx.String("tor-uri")).Msg("Using TOR proxy")
-	log.Debug().Strs("content-types", ctx.StringSlice("allowed-ct")).Msg("Allowed content types")
+The crawler consumes the 'url.new' event and produces either:
+- 'url.timeout' event if the crawling has failed because of timeout issue
+- 'resource.new' event if the crawling has succeeded.`
+}
 
-	// Create the HTTP client
-	httpClient := &fasthttp.Client{
-		// Use given TOR proxy to reach the hidden services
-		Dial: fasthttpproxy.FasthttpSocksDialer(ctx.String("tor-uri")),
-		// Disable SSL verification since we do not really care about this
-		TLSConfig:    &tls.Config{InsecureSkipVerify: true},
-		ReadTimeout:  time.Second * 5,
-		WriteTimeout: time.Second * 5,
-		Name:         ctx.String("user-agent"),
-	}
+// Features return the process features
+func (state *State) Features() []process.Feature {
+	return []process.Feature{process.EventFeature, process.ConfigFeature, process.CrawlingFeature}
+}
 
-	// Create the NATS subscriber
-	sub, err := natsutil.NewSubscriber(ctx.String("nats-uri"))
+// CustomFlags return process custom flags
+func (state *State) CustomFlags() []cli.Flag {
+	return []cli.Flag{}
+}
+
+// Initialize the process
+func (state *State) Initialize(provider process.Provider) error {
+	httpClient, err := provider.HTTPClient()
 	if err != nil {
 		return err
 	}
-	defer sub.Close()
+	state.httpClient = httpClient
 
-	log.Info().Msg("Successfully initialized tdsh-crawler. Waiting for URLs")
-
-	if err := sub.QueueSubscribe(messaging.URLTodoSubject, "crawlers",
-		handleMessage(httpClient, ctx.StringSlice("allowed-ct"))); err != nil {
+	cl, err := provider.Clock()
+	if err != nil {
 		return err
 	}
+	state.clock = cl
+
+	configClient, err := provider.ConfigClient([]string{configapi.AllowedMimeTypesKey, configapi.ForbiddenHostnamesKey})
+	if err != nil {
+		return err
+	}
+	state.configClient = configClient
 
 	return nil
 }
 
-func handleMessage(httpClient *fasthttp.Client, allowedContentTypes []string) natsutil.MsgHandler {
-	return func(nc *nats.Conn, msg *nats.Msg) error {
-		var urlMsg messaging.URLTodoMsg
-		if err := natsutil.ReadMsg(msg, &urlMsg); err != nil {
-			return err
-		}
-
-		body, err := crawURL(httpClient, urlMsg.URL, allowedContentTypes)
-		if err != nil {
-			log.Err(err).Str("url", urlMsg.URL).Msg("Error while crawling url")
-			return err
-		}
-
-		// Publish resource body
-		res := messaging.NewResourceMsg{
-			URL:  urlMsg.URL,
-			Body: body,
-		}
-		if err := natsutil.PublishMsg(nc, &res); err != nil {
-			log.Err(err).Msg("Error while publishing resource body")
-		}
-
-		return nil
+// Subscribers return the process subscribers
+func (state *State) Subscribers() []process.SubscriberDef {
+	return []process.SubscriberDef{
+		{Exchange: event.NewURLExchange, Queue: "crawlingQueue", Handler: state.handleNewURLEvent},
 	}
 }
 
-func crawURL(httpClient *fasthttp.Client, url string, allowedContentTypes []string) (string, error) {
-	log.Debug().Str("url", url).Msg("Processing URL")
+// HTTPHandler returns the HTTP API the process expose
+func (state *State) HTTPHandler() http.Handler {
+	return nil
+}
 
-	// Query the website
-	req := fasthttp.AcquireRequest()
-	resp := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseRequest(req)
-	defer fasthttp.ReleaseResponse(resp)
-
-	req.SetRequestURI(url)
-
-	if err := httpClient.Do(req, resp); err != nil {
-		return "", err
+func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.RawMessage) error {
+	var evt event.NewURLEvent
+	if err := subscriber.Read(&msg, &evt); err != nil {
+		return err
 	}
 
-	switch code := resp.StatusCode(); {
-	// follow redirect
-	case code == 301 || code == 302:
-		if location := string(resp.Header.Peek("Location")); location != "" {
-			return crawURL(httpClient, location, allowedContentTypes)
+	log.Debug().Str("url", evt.URL).Msg("Processing URL")
+
+	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, evt.URL); err != nil {
+		return err
+	} else if !allowed {
+		log.Debug().Str("url", evt.URL).Msg("Skipping forbidden hostname")
+		return fmt.Errorf("%s %w", evt.URL, errHostnameNotAllowed)
+	}
+
+	r, err := state.httpClient.Get(evt.URL)
+	if err != nil {
+		if err == chttp.ErrTimeout {
+			// indicate that crawling has failed
+			_ = subscriber.PublishEvent(&event.TimeoutURLEvent{URL: evt.URL})
 		}
+
+		return err
 	}
 
 	// Determinate if content type is allowed
 	allowed := false
-	contentType := string(resp.Header.Peek("Content-Type"))
-	for _, allowedContentType := range allowedContentTypes {
-		if strings.Contains(contentType, allowedContentType) {
+	contentType := r.Headers()["Content-Type"]
+
+	if allowedMimeTypes, err := state.configClient.GetAllowedMimeTypes(); err == nil {
+		if len(allowedMimeTypes) == 0 {
 			allowed = true
-			break
+		}
+
+		for _, allowedMimeType := range allowedMimeTypes {
+			if strings.Contains(contentType, allowedMimeType.ContentType) {
+				allowed = true
+				break
+			}
 		}
 	}
 
 	if !allowed {
-		err := fmt.Errorf("forbidden content type : %s", contentType)
-		return "", err
+		return fmt.Errorf("%s (%s): %w", evt.URL, contentType, errContentTypeNotAllowed)
 	}
 
-	return string(resp.Body()), nil
+	// Ready body
+	b, err := ioutil.ReadAll(r.Body())
+	if err != nil {
+		return err
+	}
+
+	res := event.NewResourceEvent{
+		URL:     evt.URL,
+		Body:    string(b),
+		Headers: r.Headers(),
+		Time:    state.clock.Now(),
+	}
+
+	if err := subscriber.PublishEvent(&res); err != nil {
+		return err
+	}
+
+	return nil
 }

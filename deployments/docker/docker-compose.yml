@@ -1,60 +1,123 @@
 version: '3'
 
 services:
-  nats:
-    image: nats:2.1.6-alpine3.11
-    logging:
-      driver: none
+  rabbitmq:
+    image: rabbitmq:3.8.9-management-alpine
+    hostname: bunnymq
+    ports:
+      - 15002:5672
+      - 15003:15672
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq/mnesia
   torproxy:
     image: dperson/torproxy:latest
-    logging:
-      driver: none
   elasticsearch:
-    image: elasticsearch:7.5.1
-    logging:
-      driver: none
+    image: elasticsearch:7.10.1
     environment:
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - ES_JAVA_OPTS=-Xms2g -Xmx4g
     volumes:
       - esdata:/usr/share/elasticsearch/data
   kibana:
-    image: kibana:7.5.1
-    logging:
-      driver: none
+    image: kibana:7.10.1
     depends_on:
       - elasticsearch
     ports:
       - 15004:5601
+  redis:
+    image: redis:alpine3.12
+    volumes:
+      - redisdata:/data
   crawler:
-    image: creekorful/tdsh-crawler:latest
-    command: --log-level debug --nats-uri nats --tor-uri torproxy:9050
+    image: darkspot/bs-crawler:latest
+    command: >
+      --log-level debug
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --tor-proxy torproxy:9050
+      --config-api http://configapi:8080
     restart: always
     depends_on:
-      - nats
+      - rabbitmq
       - torproxy
+      - configapi
   scheduler:
-    image: creekorful/tdsh-scheduler:latest
-    command: --log-level debug --nats-uri nats --api-uri http://api:8080
+    image: darkspot/bs-scheduler:latest
+    command: >
+      --log-level debug
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --event-prefetch 20
+      --config-api http://configapi:8080
+      --cache-srv redis://redis:6379
     restart: always
     depends_on:
-      - nats
-  extractor:
-    image: creekorful/tdsh-extractor:latest
-    command: --log-level debug --nats-uri nats --api-uri http://api:8080
+      - rabbitmq
+      - configapi
+      - redis
+  indexer-local:
+    image: darkspot/bs-indexer:latest
+    command: >
+      --log-level debug
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --config-api http://configapi:8080
+      --index-driver local
+      --index-dest /archive
+    restart: always
+    volumes:
+      - archiverdata:/archive
+    depends_on:
+      - rabbitmq
+      - configapi
+  indexer-es:
+    image: darkspot/bs-indexer:latest
+    command: >
+      --log-level debug
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --event-prefetch 20
+      --config-api http://configapi:8080
+      --index-driver elastic
+      --index-dest http://elasticsearch:9200
     restart: always
     depends_on:
-      - nats
-      - api
-  api:
-    image: creekorful/tdsh-api:latest
-    command: --log-level debug --nats-uri nats --elasticsearch-uri http://elasticsearch:9200
-    restart: always
-    depends_on:
+      - rabbitmq
       - elasticsearch
+      - configapi
+  configapi:
+    image: darkspot/bs-configapi:latest
+    command: >
+      --log-level debug
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --cache-srv redis://redis:6379
+      --default-value forbidden-hostnames="[]"
+      --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
+      --default-value refresh-delay="{\"delay\": 0}"
+      --default-value blacklist-config="{\"threshold\": 5, \"ttl\": 1200}"
+    restart: always
+    depends_on:
+      - rabbitmq
+      - redis
     ports:
-      - 15005:8080
+      - 15006:8080
+  blacklister:
+    image: darkspot/bs-blacklister:latest
+    command: >
+      --log-level debug
+      --event-srv amqp://guest:guest@rabbitmq:5672
+      --config-api http://configapi:8080
+      --cache-srv redis://redis:6379
+      --tor-proxy torproxy:9050
+    restart: always
+    depends_on:
+      - rabbitmq
+      - configapi
+      - redis
+      - torproxy
 
 volumes:
   esdata:
+    driver: local
+  rabbitdata:
+    driver: local
+  archiverdata:
+    driver: local
+  redisdata:
     driver: local

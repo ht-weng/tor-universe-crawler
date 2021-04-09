@@ -1,68 +1,66 @@
-# Trandoshan dark web crawler
+# Bathyscaphe dark web crawler
 
-[![trandoshan](https://snapcraft.io//trandoshan/badge.svg)](https://snapcraft.io/trandoshan)
+![CI](https://github.com/darkspot-org/bathyscaphe/workflows/CI/badge.svg)
 
-This repository is a complete rewrite of the Trandoshan dark web crawler. Everything has been written inside a single
-Git repository to ease maintenance.
+Bathyscaphe is a Go written, fast, highly configurable, cloud-native dark web crawler.
 
-## Why a rewrite?
+# How to start the crawler
 
-The first version of Trandoshan [(available here)](https://github.com/trandoshan-io) is working great but
-not really professional, the code start to be a mess, hard to manage since split in multiple repositories, etc..
-
-I have therefore decided to create & maintain the project in this specific directory, where all process code will be available
-(as a Go module).
-
-## How build the crawler
-
-Since the docker image are not available yet, one must run the following script in order to build the crawler fully.
+To start the crawler, one just need to execute the following command:
 
 ```sh
-./scripts/build.sh
+$ ./scripts/docker/start.sh
 ```
 
-## How to start the crawler
+and wait for all containers to start.
 
-Execute the ``/scripts/start.sh`` and wait for all containers to start.
-You can start the crawler in detached mode by passing --detach to start.sh
+## Notes
 
-### Note
+- You can start the crawler in detached mode by passing --detach to start.sh.
+- Ensure you have at least 3 GB of memory as the Elasticsearch stack docker will require 2 GB.
 
-Ensure you have at least 3GB of memory as the Elasticsearch stack docker will require 2GB.
+# How to initiate crawling
 
-## How to start the crawling process
+One can use the RabbitMQ dashboard available at localhost:15003, and publish a new JSON object in the **crawlingQueue**
+.
 
-Since the API is explosed on localhost:15005, one can use it to start the crawling process:
+The object should look like this:
 
-using trandoshanctl executable:
+```json
+{
+  "url": "https://facebookcorewwwi.onion"
+}
+```
+
+## How to speed up crawling
+
+If one want to speed up the crawling, he can scale the instance of crawling component in order to increase performances.
+This may be done by issuing the following command after the crawler is started:
 
 ```sh
-go build cmd/trandoshanctl/trandoshanctl.go
+$ ./scripts/docker/start.sh -d --scale crawler=5
 ```
+
+this will set the number of crawler instance to 5.
+
+# How to view results
+
+You can use the Kibana dashboard available at http://localhost:15004. You will need to create an index pattern named '
+resources', and when it asks for the time field, choose 'time'.
+
+# How to hack the crawler
+
+If you've made a change to one of the crawler component and wish to use the updated version when running start.sh you
+just need to issue the following command:
 
 ```sh
-./trandoshanctl schedule https://www.facebookcorewwwi.onion
+$ goreleaser --snapshot --skip-publish --rm-dist
 ```
 
-This will 'force' the API to publish given URL in crawling queue.
+this will rebuild all images using local changes. After that just run start.sh again to have the updated version
+running.
 
-Call the feeder multiple times to publish a set of URLs to the crawling queue.
+# Architecture
 
-or using the docker image:
+The architecture details are available [here](docs/architecture.png).
 
-```sh
-docker run creekorful/trandoshanctl schedule https://www.facebookcorewwwi.onion
-```
-
-this will schedule given URL for crawling.
-
-### How to view results
-
-At the moment there is no Trandoshan dashboard.
-You can use the Kibana dashboard available at http://localhost:15004.
-
-You will need to create an index pattern named 'resources', and when it asks for the time field, choose 'time'.
-
-### How to save results
-
-'Save search' in Kibana Discovery and then 'Share this search' as a CSV report. 

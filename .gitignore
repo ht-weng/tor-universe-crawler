@@ -1,2 +1,3 @@
 .idea/
-trandoshanctl
+**/**_mock.go
+dist/
