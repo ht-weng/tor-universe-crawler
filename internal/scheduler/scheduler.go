@@ -12,7 +12,6 @@ import (
 	"github.com/PuerkitoBio/purell"
 	"github.com/darkspot-org/bathyscaphe/internal/cache"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
-	"github.com/darkspot-org/bathyscaphe/internal/constraint"
 	"github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
@@ -189,10 +188,24 @@ func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[
 		return fmt.Errorf("%s %w", u, errExtensionNotAllowed)
 	}
 
+	// // Make sure hostname is not forbidden
+	// if allowed, err := constraint.CheckHostnameAllowed(state.configClient, rawURL); err != nil {
+	// 	return err
+	// } else if !allowed {
+	// 	log.Debug().Str("url", rawURL).Msg("Skipping forbidden hostname")
+	// 	return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
+	// }
+
+	allowed = isForbidden(u.Hostname())
+
 	// Make sure hostname is not forbidden
-	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, rawURL); err != nil {
-		return err
-	} else if !allowed {
+	if !allowed {
+		log.Debug().Str("url", rawURL).Msg("Skipping forbidden hostname")
+		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
+	}
+
+	// Make sure hostname is not forbidden
+	if allowed := isForbidden(u.Hostname()); !allowed {
 		log.Debug().Str("url", rawURL).Msg("Skipping forbidden hostname")
 		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 	}
@@ -247,4 +260,64 @@ func normalizeURL(u string) (string, error) {
 	}
 
 	return normalizedURL, nil
+}
+
+// Check if a string is in a list
+func stringInArray(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
+// Check if a hostname is forbidden
+func isForbidden(url string) bool {
+	forbiddenHostnames := []string{"www.facebookcorewwwi.onion",
+		"facebookcorewwwi.onion",
+		"m.facebookcorewwwi.onion",
+		"ar-ar.facebookcorewwwi.onion",
+		"bg-bg.facebookcorewwwi.onion",
+		"bs-ba.facebookcorewwwi.onion",
+		"ca-es.facebookcorewwwi.onion",
+		"da-dk.facebookcorewwwi.onion",
+		"el-gr.facebookcorewwwi.onion",
+		"es-la.facebookcorewwwi.onion",
+		"es-es.facebookcorewwwi.onion",
+		"fa-ir.facebookcorewwwi.onion",
+		"fi-fi.facebookcorewwwi.onion",
+		"fr-fr.facebookcorewwwi.onion",
+		"fr-ca.facebookcorewwwi.onion",
+		"hi-in.facebookcorewwwi.onion",
+		"hr-hr.facebookcorewwwi.onion",
+		"id-id.facebookcorewwwi.onion",
+		"it-it.facebookcorewwwi.onion",
+		"ko-kr.facebookcorewwwi.onion",
+		"mk-mk.facebookcorewwwi.onion",
+		"ms-my.facebookcorewwwi.onion",
+		"pl-pl.facebookcorewwwi.onion",
+		"pt-br.facebookcorewwwi.onion",
+		"pt-pt.facebookcorewwwi.onion",
+		"ro-ro.facebookcorewwwi.onion",
+		"sl-si.facebookcorewwwi.onion",
+		"sr-rs.facebookcorewwwi.onion",
+		"th-th.facebookcorewwwi.onion",
+		"vi-vn.facebookcorewwwi.onion",
+		"de-de.facebookcorewwwi.onion",
+		"zh-cn.facebookcorewwwi.onion",
+		"ja-jp.facebookcorewwwi.onion",
+		"pay.facebookcorewwwi.onion",
+		"portal.facebookcorewwwi.onion",
+		"l.facebookcorewwwi.onion",
+		"developers.facebookcorewwwi.onion",
+		"pixel.facebookcorewwwi.onion",
+		"static.xx.fbcdn23dssr3jqnq.onion"}
+	allowed := !stringInArray(url, forbiddenHostnames)
+	if allowed {
+		log.Debug().Str("url", url).Msg("URL is allowed: ")
+	} else {
+		log.Debug().Str("url", url).Msg("URL is forbidden: ")
+	}
+	return allowed
 }
