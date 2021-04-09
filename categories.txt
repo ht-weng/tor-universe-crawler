@@ -1,0 +1,34 @@
+# Original Classes
+Art
+Casino
+Counterfeit Credit-Cards
+Counterfeit Money
+Counterfeit Personal-Identification
+Cryptocurrency
+Cryptolocker
+Down
+Drugs
+Empty
+Forum
+Hacking
+Hosting
+Leaked-Data
+Library
+Locked
+Marketplace
+Personal
+Porno
+Religion
+Services
+Social-Network
+Violence
+
+#Summarised Classes
+Market
+Counterfeit
+Services
+Security
+Porn
+Cryptocurrency
+NoAccess
+Other
