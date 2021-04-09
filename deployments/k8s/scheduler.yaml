@@ -21,7 +21,7 @@ spec:
             - --log-level
             - debug
             - --event-srv
-            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - amqp://TorUniverseCrawler:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
             - --event-prefetch
             - '20'
             - --config-api

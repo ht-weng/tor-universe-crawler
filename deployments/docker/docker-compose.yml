@@ -8,18 +8,31 @@ services:
       - 15002:5672
       - 15003:15672
     volumes:
+      # - /mnt/universe_data/crawler_data/rabbitdata:/var/lib/rabbitmq/mnesia
       - rabbitdata:/var/lib/rabbitmq/mnesia
+  # replace dperson/torproxy with torproxy built locally from niruix/tor
+  # torproxy:
+    # image: torproxy:Dockerfile
+    # logging:
+    #   driver: none
   torproxy:
     image: dperson/torproxy:latest
+    # logging:
+    #   driver: none
   elasticsearch:
     image: elasticsearch:7.10.1
+    logging:
+      driver: none
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms2g -Xmx4g
     volumes:
+      # - /mnt/universe_data/crawler_data/esdata:/usr/share/elasticsearch/data
       - esdata:/usr/share/elasticsearch/data
   kibana:
     image: kibana:7.10.1
+    logging:
+      driver: none
     depends_on:
       - elasticsearch
     ports:
@@ -27,6 +40,7 @@ services:
   redis:
     image: redis:alpine3.12
     volumes:
+      # - /mnt/universe_data/crawler_data/redisdata:/data
       - redisdata:/data
   crawler:
     image: darkspot/bs-crawler:latest
@@ -63,6 +77,7 @@ services:
       --index-dest /archive
     restart: always
     volumes:
+      # - /mnt/universe_data/crawler_data/archiverdata:/archive
       - archiverdata:/archive
     depends_on:
       - rabbitmq
@@ -87,7 +102,45 @@ services:
       --log-level debug
       --event-srv amqp://guest:guest@rabbitmq:5672
       --cache-srv redis://redis:6379
-      --default-value forbidden-hostnames="[]"
+      --default-value forbidden-hostnames="["www.facebookcorewwwi.onion", 
+        "facebookcorewwwi.onion", 
+        "m.facebookcorewwwi.onion", 
+        "ar-ar.facebookcorewwwi.onion", 
+        "bg-bg.facebookcorewwwi.onion", 
+        "bs-ba.facebookcorewwwi.onion",
+        "ca-es.facebookcorewwwi.onion",
+        "da-dk.facebookcorewwwi.onion",
+        "el-gr.facebookcorewwwi.onion",
+        "es-la.facebookcorewwwi.onion",
+        "es-es.facebookcorewwwi.onion",
+        "fa-ir.facebookcorewwwi.onion",
+        "fi-fi.facebookcorewwwi.onion",
+        "fr-fr.facebookcorewwwi.onion",
+        "fr-ca.facebookcorewwwi.onion",
+        "hi-in.facebookcorewwwi.onion",
+        "hr-hr.facebookcorewwwi.onion",
+        "id-id.facebookcorewwwi.onion",
+        "it-it.facebookcorewwwi.onion",
+        "ko-kr.facebookcorewwwi.onion",
+        "mk-mk.facebookcorewwwi.onion",
+        "ms-my.facebookcorewwwi.onion",
+        "pl-pl.facebookcorewwwi.onion",
+        "pt-br.facebookcorewwwi.onion",
+        "pt-pt.facebookcorewwwi.onion",
+        "ro-ro.facebookcorewwwi.onion",
+        "sl-si.facebookcorewwwi.onion",
+        "sr-rs.facebookcorewwwi.onion",
+        "th-th.facebookcorewwwi.onion",
+        "vi-vn.facebookcorewwwi.onion",
+        "de-de.facebookcorewwwi.onion",
+        "zh-cn.facebookcorewwwi.onion",
+        "ja-jp.facebookcorewwwi.onion",
+        "pay.facebookcorewwwi.onion",
+        "portal.facebookcorewwwi.onion",
+        "l.facebookcorewwwi.onion",
+        "developers.facebookcorewwwi.onion",
+        "pixel.facebookcorewwwi.onion",
+        "static.xx.fbcdn23dssr3jqnq.onion"]"
       --default-value allowed-mime-types="[{\"content-type\":\"text/\",\"extensions\":[\"html\",\"php\",\"aspx\", \"htm\"]}]"
       --default-value refresh-delay="{\"delay\": 0}"
       --default-value blacklist-config="{\"threshold\": 5, \"ttl\": 1200}"

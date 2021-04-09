@@ -21,7 +21,7 @@ spec:
             - --log-level
             - debug
             - --event-srv
-            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - amqp://TorUniverseCrawler:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
             - --cache-srv
             - redis://default:WtVcUp9yebNnwjuE2LuumJM52AJ9sZ@redis-master:6379
             - --default-value

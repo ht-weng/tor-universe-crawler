@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: torproxy
-          image: dperson/torproxy:latest
+          image: torproxy:Dockerfile
 ---
 apiVersion: v1
 kind: Service

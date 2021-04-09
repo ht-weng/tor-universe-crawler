@@ -21,7 +21,7 @@ spec:
             - --log-level
             - debug
             - --event-srv
-            - amqp://bathyscaphe:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
+            - amqp://TorUniverseCrawler:nHEsR9MpJfxLwwkKP48mhMtGFTBqMTfC@rabbitmq:5672
             - --tor-proxy
             - torproxy-service:9050
             - --config-api
