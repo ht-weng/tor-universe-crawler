@@ -12,7 +12,7 @@ services:
       - rabbitdata:/var/lib/rabbitmq/mnesia
   # replace dperson/torproxy with torproxy built locally from niruix/tor
   # torproxy:
-    # image: torproxy:Dockerfile
+  #   image: torproxy:Dockerfile
     # logging:
     #   driver: none
   torproxy:

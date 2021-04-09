@@ -83,14 +83,6 @@ The object should look like this:
 {"url": "http://torlinkbgs6aabns.onion/"}
 ```
 
-Multiple URLs can be published automatically using [rabbitmqadmin](https://www.rabbitmq.com/management-cli.html).
-
-Go to `http://{hostname}:15672/cli/rabbitmqadmin` to download `rabbitmqadmin`.
-
-Then `sudo chmod +x rabbitmqadmin`, `sudo cp rabbitmqadmin /usr/local/bin`.
-
-Finally run `./publish.sh` to publish seed URLs.
-
 ## How to speed up crawling
 
 If one want to speed up the crawling, he can scale the instance of crawling component in order to increase performance.  
@@ -102,6 +94,7 @@ This may be done by issuing the following command after the crawler is started:
 ```
 
 ## How to view results
+
 
 ### Using kibana
 
