@@ -2,6 +2,8 @@ package indexer
 
 import (
 	"fmt"
+	"net/http"
+
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/constraint"
 	"github.com/darkspot-org/bathyscaphe/internal/event"
@@ -9,7 +11,6 @@ import (
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"net/http"
 )
 
 var errHostnameNotAllowed = fmt.Errorf("hostname is not allowed")
@@ -109,6 +110,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 			Time:    evt.Time,
 			Body:    evt.Body,
 			Headers: evt.Headers,
+			Status:  evt.Status,
 		}); err != nil {
 			return fmt.Errorf("error while indexing resource: %s", err)
 		}
@@ -126,6 +128,7 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 		Time:    evt.Time,
 		Body:    evt.Body,
 		Headers: evt.Headers,
+		Status:  evt.Status,
 	})
 
 	log.Debug().Str("url", evt.URL).Msg("Successfully stored resource in buffer")

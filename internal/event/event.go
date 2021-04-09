@@ -41,13 +41,18 @@ func (msg *TimeoutURLEvent) Exchange() string {
 	return TimeoutURLExchange
 }
 
+/* HTW CHANGE: Add status */
+
 // NewResourceEvent represent a crawled resource
 type NewResourceEvent struct {
 	URL     string            `json:"url"`
 	Body    string            `json:"body"`
 	Headers map[string]string `json:"headers"`
 	Time    time.Time         `json:"time"`
+	Status  string            `json:"status"`
 }
+
+/* END OF CHANGE */
 
 // Exchange returns the exchange where event should be push
 func (msg *NewResourceEvent) Exchange() string {

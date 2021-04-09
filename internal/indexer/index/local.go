@@ -27,7 +27,7 @@ func (s *localIndex) IndexResource(resource Resource) error {
 		return err
 	}
 
-	content, err := formatResource(resource.URL, resource.Body, resource.Headers)
+	content, err := formatResource(resource.URL, resource.Body, resource.Headers, resource.Status)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (s *localIndex) IndexResources(resources []Resource) error {
 	return nil
 }
 
-func formatResource(url string, body string, headers map[string]string) ([]byte, error) {
+func formatResource(url string, body string, headers map[string]string, status string) ([]byte, error) {
 	builder := strings.Builder{}
 
 	// First URL
@@ -79,6 +79,10 @@ func formatResource(url string, body string, headers map[string]string) ([]byte,
 
 	// Then body
 	builder.WriteString(body)
+
+	// Status
+	builder.WriteString("\n")
+	builder.WriteString(status)
 
 	return []byte(builder.String()), nil
 }

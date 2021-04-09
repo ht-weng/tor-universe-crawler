@@ -1,7 +1,12 @@
 package crawler
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
 	"github.com/darkspot-org/bathyscaphe/internal/clock"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
 	"github.com/darkspot-org/bathyscaphe/internal/constraint"
@@ -10,14 +15,12 @@ import (
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"io/ioutil"
-	"net/http"
-	"strings"
 )
 
 var (
 	errContentTypeNotAllowed = fmt.Errorf("content type is not allowed")
 	errHostnameNotAllowed    = fmt.Errorf("hostname is not allowed")
+	errAlreadyScheduled      = errors.New("URL is already scheduled")
 )
 
 // State represent the application state
@@ -110,6 +113,22 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 			_ = subscriber.PublishEvent(&event.TimeoutURLEvent{URL: evt.URL})
 		}
 
+		/* HTW CHANGE: Publish dead url */
+		//  Publish dead URL resource
+		res := event.NewResourceEvent{
+			URL:     evt.URL,
+			Body:    "NA",
+			Headers: make(map[string]string),
+			Time:    state.clock.Now(),
+			Status:  "dead",
+		}
+
+		if err1 := subscriber.PublishEvent(&res); err1 != nil {
+			return err1
+		}
+
+		log.Debug().Str("url", evt.URL).Msg("URL is dead")
+		/* END OF CHANGE */
 		return err
 	}
 
@@ -140,16 +159,23 @@ func (state *State) handleNewURLEvent(subscriber event.Subscriber, msg event.Raw
 		return err
 	}
 
+	/* HTW CHANGE: Add status */
 	res := event.NewResourceEvent{
 		URL:     evt.URL,
 		Body:    string(b),
 		Headers: r.Headers(),
 		Time:    state.clock.Now(),
+		Status:  "live",
 	}
+	/* END OF CHANGE */
 
 	if err := subscriber.PublishEvent(&res); err != nil {
 		return err
 	}
+
+	/* HTW CHANGE: Add debug info */
+	log.Debug().Str("url", evt.URL).Msg("URL is live")
+	/* END OF CHANGE*/
 
 	return nil
 }

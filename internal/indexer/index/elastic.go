@@ -2,11 +2,12 @@ package index
 
 import (
 	"context"
+	"strings"
+	"time"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/olivere/elastic/v7"
 	"github.com/rs/zerolog/log"
-	"strings"
-	"time"
 )
 
 const resourcesIndexName = "resources"
@@ -39,6 +40,9 @@ const mapping = `
       "title": {
         "type": "text"
       },
+      "status": {
+        "type": "text"
+      },
       "headers": {
         "properties": {
           "server": {
@@ -63,6 +67,7 @@ type resourceIdx struct {
 	Meta        map[string]string `json:"meta"`
 	Description string            `json:"description"`
 	Headers     map[string]string `json:"headers"`
+	Status      string            `json:"status"`
 }
 
 type elasticSearchIndex struct {
@@ -182,5 +187,6 @@ func indexResource(resource Resource) (*resourceIdx, error) {
 		Meta:        meta,
 		Description: meta["description"],
 		Headers:     lowerCasedHeaders,
+		Status:      resource.Status,
 	}, nil
 }

@@ -20,6 +20,7 @@ type Resource struct {
 	Time    time.Time
 	Body    string
 	Headers map[string]string
+	Status  string
 }
 
 // Index is the interface used to abstract communication with the persistence unit
