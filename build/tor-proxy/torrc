@@ -1,0 +1,25 @@
+ # For more options, see
+# https://gitweb.torproject.org/tor.git/tree/src/config/torrc.sample.in
+
+DataDirectory           /tmp/tor
+ClientTransportPlugin   obfs4 exec /usr/local/bin/obfs4proxy
+ClientTransportPlugin   meek  exec /usr/local/bin/meek-client
+#ServerTransportPlugin  meek  exec /usr/local/bin/meek-server
+RunAsDaemon             0
+AvoidDiskWrites         1
+
+SOCKSPort               0.0.0.0:9050
+
+# Socks5Proxy           shadowsocks.local:1080
+# ReachableAddresses    accept *:443
+# ReachableAddresses    accept *:80
+
+
+## Use Bridge
+UseBridges 1 
+# ClientTransportPlugin obfs4 exec /usr/bin/obfs4proxy managed
+
+## Change bridges if need be 'Preferences -> Tor -> Bridges'
+Bridge obfs4 167.179.189.56:44568 5BE558E6EB50165E4F7A11B893FB9A9BCD1CC7A0 cert=5/GHWOPMGs5mMRgsJ02efb6I21yT56bPMfG+XiXlrXuuk+VqCvny6lvXozt0SDD2eF0UDw iat-mode=0
+Bridge obfs4 82.161.151.221:4502 6483471E58C7D940A6BA1630C3BBFF54ED2CA3DF cert=+NLZFt7N0jlQKb+sVogBnaeW3ueUAkn37DdBsB1IPkjVhXS68arziM6gCMbZY/psbce3UQ iat-mode=0
+Bridge obfs4 213.47.53.118:14113 59EBB51BA03E5ACA3B607422F6023469FD05E197 cert=IlvdLmnas1fJdIOa8CpzWwqLuxiIJUzfOh+I4e4z0ea8FOAeWGTVjlYp2XRI9Y3Tkz9Ufg iat-mode=0
