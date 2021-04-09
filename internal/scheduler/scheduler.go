@@ -12,6 +12,7 @@ import (
 	"github.com/PuerkitoBio/purell"
 	"github.com/darkspot-org/bathyscaphe/internal/cache"
 	configapi "github.com/darkspot-org/bathyscaphe/internal/configapi/client"
+	"github.com/darkspot-org/bathyscaphe/internal/constraint"
 	"github.com/darkspot-org/bathyscaphe/internal/event"
 	"github.com/darkspot-org/bathyscaphe/internal/process"
 	"github.com/rs/zerolog/log"
@@ -45,7 +46,6 @@ The scheduling component. It extracts URLs from crawled resources
 and apply a predicate to determinate if the URL is eligible
 for crawling. If it is, it will publish a event and update the
 scheduling cache.
-
 This component consumes the 'resource.new' event and produces
 the 'url.new' event.`
 }
@@ -141,6 +141,87 @@ func (state *State) handleNewResourceEvent(subscriber event.Subscriber, msg even
 	return nil
 }
 
+// // Old version
+// func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[string]int64) error {
+// 	u, err := url.Parse(rawURL)
+// 	if err != nil {
+// 		return fmt.Errorf("error while parsing URL: %s", err)
+// 	}
+
+// 	// Make sure URL is valid .onion
+// 	if !strings.HasSuffix(u.Hostname(), ".onion") {
+// 		return fmt.Errorf("%s %w", u.Host, errNotOnionHostname)
+// 	}
+
+// 	// Make sure protocol is not forbidden
+// 	if !strings.HasPrefix(u.Scheme, "http") {
+// 		return fmt.Errorf("%s %w", u, errProtocolNotAllowed)
+// 	}
+
+// 	// Make sure extension is allowed
+// 	allowed := false
+// 	if mimeTypes, err := state.configClient.GetAllowedMimeTypes(); err == nil {
+// 		for _, mimeType := range mimeTypes {
+// 			for _, ext := range mimeType.Extensions {
+// 				if strings.HasSuffix(strings.ToLower(u.Path), "."+ext) {
+// 					allowed = true
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	// Handle case no extension present
+// 	if !allowed {
+// 		components := strings.Split(u.Path, "/")
+
+// 		lastIdx := 0
+// 		if size := len(components); size > 0 {
+// 			lastIdx = size - 1
+// 		}
+
+// 		// generally no extension means text/* content-type
+// 		if !strings.Contains(components[lastIdx], ".") {
+// 			allowed = true
+// 		}
+// 	}
+
+// 	if !allowed {
+// 		return fmt.Errorf("%s %w", u, errExtensionNotAllowed)
+// 	}
+
+// 	// Make sure hostname is not forbidden
+// 	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, rawURL); err != nil {
+// 		return err
+// 	} else if !allowed {
+// 		log.Debug().Str("url", rawURL).Msg("Skipping forbidden hostname")
+// 		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
+// 	}
+
+// 	// Compute url hash
+// 	c := fnv.New64()
+// 	if _, err := c.Write([]byte(rawURL)); err != nil {
+// 		return fmt.Errorf("error while computing url hash: %s", err)
+// 	}
+// 	urlHash := strconv.FormatUint(c.Sum64(), 10)
+
+// 	// Check if URL should be scheduled
+// 	if urlCache[urlHash] > 0 {
+// 		return fmt.Errorf("%s %w", u, errAlreadyScheduled)
+// 	}
+
+// 	log.Debug().Stringer("url", u).Msg("URL should be scheduled")
+
+// 	urlCache[urlHash]++
+
+// 	if err := pub.PublishEvent(&event.NewURLEvent{URL: rawURL}); err != nil {
+// 		return fmt.Errorf("error while publishing URL: %s", err)
+// 	}
+
+// 	return nil
+// }
+
+// HTW CHANGE
+// Only schedule domain URLs
 func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[string]int64) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -188,18 +269,10 @@ func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[
 		return fmt.Errorf("%s %w", u, errExtensionNotAllowed)
 	}
 
-	// // Make sure hostname is not forbidden
-	// if allowed, err := constraint.CheckHostnameAllowed(state.configClient, rawURL); err != nil {
-	// 	return err
-	// } else if !allowed {
-	// 	log.Debug().Str("url", rawURL).Msg("Skipping forbidden hostname")
-	// 	return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
-	// }
-
-	allowed = isForbidden(u.Hostname())
-
 	// Make sure hostname is not forbidden
-	if !allowed {
+	if allowed, err := constraint.CheckHostnameAllowed(state.configClient, rawURL); err != nil {
+		return err
+	} else if !allowed {
 		log.Debug().Str("url", rawURL).Msg("Skipping forbidden hostname")
 		return fmt.Errorf("%s %w", u, errHostnameNotAllowed)
 	}
@@ -233,6 +306,8 @@ func (state *State) processURL(rawURL string, pub event.Publisher, urlCache map[
 	return nil
 }
 
+// HTW CHANGE
+// Only schedule domain URL
 func extractURLS(msg *event.NewResourceEvent) ([]string, error) {
 	// Extract & normalize URLs
 	xu := xurls.Strict()
@@ -246,11 +321,37 @@ func extractURLS(msg *event.NewResourceEvent) ([]string, error) {
 			continue
 		}
 
-		normalizedURLS = append(normalizedURLS, normalizedURL)
+		urlparsed, err := url.Parse(normalizedURL)
+
+		domainURL := "http://" + urlparsed.Hostname()
+
+		log.Debug().Str("url", domainURL).Msg("Domain URL: ")
+
+		normalizedURLS = append(normalizedURLS, domainURL)
 	}
 
 	return normalizedURLS, nil
 }
+
+// // Old version
+// func extractURLS(msg *event.NewResourceEvent) ([]string, error) {
+// 	// Extract & normalize URLs
+// 	xu := xurls.Strict()
+// 	urls := xu.FindAllString(msg.Body, -1)
+
+// 	var normalizedURLS []string
+
+// 	for _, u := range urls {
+// 		normalizedURL, err := normalizeURL(u)
+// 		if err != nil {
+// 			continue
+// 		}
+
+// 		normalizedURLS = append(normalizedURLS, normalizedURL)
+// 	}
+
+// 	return normalizedURLS, nil
+// }
 
 func normalizeURL(u string) (string, error) {
 	normalizedURL, err := purell.NormalizeURLString(u, purell.FlagsUsuallySafeGreedy|
