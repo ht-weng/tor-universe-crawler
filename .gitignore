@@ -1,3 +1,9 @@
 .idea/
+./trandoshanctl
+.ipynb_checkpoints
+**.csv
+data
+.vscode
+.github/*
 **/**_mock.go
 dist/
