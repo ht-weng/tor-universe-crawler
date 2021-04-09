@@ -1,0 +1,1 @@
+curl -s -u guest:guest -H "content-type:application/json" -X POST http://localhost:15672/api/exchanges/%2Fv/url.new/publish -d'{"properties":{},"routing_key":"crawlingQueue","payload":"{"url": "http://zqktlwiuavvvqqt4ybvgvi7tyo4hjl5xgfuvpdf6otjiycgwqbym2qad.onion/wiki/Main_Page"}","payload_encoding":"auto"}'
